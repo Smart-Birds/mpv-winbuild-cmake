@@ -1,3 +1,12 @@
+# MPV_GIT_TAG pins the mpv ref to build (tag/commit). Empty = track
+# origin/master, upstream's default. Set via -DMPV_GIT_TAG=... (SOVA2 #366:
+# sidecar builds must be immutable and re-runnable). Setting GIT_TAG also
+# switches force_rebuild_git's reset to plain `git reset --hard`, so a pinned
+# checkout survives the ALWAYS-run force-update step.
+if(MPV_GIT_TAG)
+    set(mpv_git_tag GIT_TAG ${MPV_GIT_TAG})
+endif()
+
 ExternalProject_Add(mpv
     DEPENDS
         angle-headers
@@ -11,11 +20,9 @@ ExternalProject_Add(mpv
         libiconv
         libjpeg
         libpng
-        luajit
         rubberband
         uchardet
         openal-soft
-        mujs
         vulkan
         shaderc
         libplacebo
@@ -25,6 +32,7 @@ ExternalProject_Add(mpv
         subrandr
         libsixel
     GIT_REPOSITORY https://github.com/mpv-player/mpv.git
+    ${mpv_git_tag}
     SOURCE_DIR ${SOURCE_LOCATION}
     GIT_CLONE_FLAGS "--filter=tree:0"
     UPDATE_COMMAND ""
@@ -41,8 +49,8 @@ ExternalProject_Add(mpv
         ${mpv_lto_mode}
         -Dlibmpv=true
         -Dpdf-build=enabled
-        -Dlua=enabled
-        -Djavascript=enabled
+        -Dlua=disabled
+        -Djavascript=disabled
         -Dsdl2-gamepad=enabled
         -Dlibarchive=enabled
         -Dlibbluray=enabled
