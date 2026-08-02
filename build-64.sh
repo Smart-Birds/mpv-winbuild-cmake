@@ -17,6 +17,11 @@ mpv_ref=${2:-}
 
 mkdir -p ./release
 
+# Package PATCH_COMMANDs apply patches with `git am`, which refuses to run
+# without a committer identity (bare containers have none).
+git config --global user.email "mpv-winbuild@localhost"
+git config --global user.name "mpv-winbuild CI"
+
 build() {
     local clang_option=()
     if [ "$compiler" == "clang" ]; then
