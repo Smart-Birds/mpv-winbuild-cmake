@@ -3,6 +3,10 @@ ExternalProject_Add(angle-headers
     SOURCE_DIR ${SOURCE_LOCATION}
     GIT_REMOTE_NAME origin
     GIT_TAG main
+    # ANGLE main dropped the EGL_PLATFORM_ANGLE_TYPE_D3D9_ANGLE define that
+    # pinned mpv v0.41.0 still references (context_angle.c). Pin the last
+    # headers commit that works — same reset as zhongfly's CI patch 0014.
+    GIT_RESET 0cb8023c01f92b29f3738ea7472d06f8f059ed84
     GIT_CLONE_FLAGS "--sparse --filter=tree:0"
     GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone include/EGL include/KHR"
     GIT_SUBMODULES ""
