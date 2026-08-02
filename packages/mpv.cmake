@@ -29,7 +29,6 @@ ExternalProject_Add(mpv
         spirv-cross
         vapoursynth
         libsdl2
-        subrandr
         libsixel
     GIT_REPOSITORY https://github.com/mpv-player/mpv.git
     ${mpv_git_tag}
@@ -62,7 +61,6 @@ ExternalProject_Add(mpv
         -Dspirv-cross=enabled
         -Dvulkan=enabled
         -Dvapoursynth=enabled
-        -Dsubrandr=enabled
         -Dsixel=enabled
         ${mpv_gl}
         -Dc_args='-Wno-error=int-conversion'
