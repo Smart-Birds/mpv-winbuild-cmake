@@ -28,7 +28,24 @@ build() {
     fi
     cmake -Wno-dev --fresh -DTARGET_ARCH=x86_64-w64-mingw32 -DCOMPILER_TOOLCHAIN=$compiler "${clang_option[@]}" "${mpv_tag_option[@]}" -DENABLE_CCACHE=ON -DSINGLE_SOURCE_LOCATION=$srcdir -DRUSTUP_LOCATION=$buildroot/install_rustup -G Ninja -H$gitdir -B$buildroot/build64
 
-    ninja -C $buildroot/build64 download || true
+    # Downloads must genuinely complete: a killed parallel git clone leaves
+    # stale .git locks and missing objects, and the surviving "downloaded"
+    # stamps then poison every later step (llvm build, force-update). Retry
+    # transient failures; on repeated failure wipe sources AND their download
+    # stamps so the retry really re-clones instead of trusting corrupt state.
+    for attempt in 1 2 3; do
+        if ninja -C $buildroot/build64 download; then
+            break
+        fi
+        if [ "$attempt" = 3 ]; then
+            echo "ninja download failed after 3 attempts" >&2
+            exit 1
+        fi
+        echo "download attempt $attempt failed; wiping src_packages and retrying" >&2
+        rm -rf "$srcdir"
+        find $buildroot/build64 -path "*-stamp/*" -name "*-download" -delete
+        sleep 5
+    done
 
     if [ "$compiler" == "gcc" ] && [ ! -f "$buildroot/build64/install/bin/cross-gcc" ]; then
         ninja -C $buildroot/build64 gcc && rm -rf $buildroot/build64/toolchain
