@@ -42,7 +42,9 @@ build() {
             exit 1
         fi
         echo "download attempt $attempt failed; wiping src_packages and retrying" >&2
-        rm -rf "$srcdir"
+        # mkdir -p: git clone creates the per-package leaf dirs but needs
+        # src_packages itself to exist.
+        rm -rf "$srcdir" && mkdir -p "$srcdir"
         find $buildroot/build64 -path "*-stamp/*" -name "*-download" -delete
         sleep 5
     done
