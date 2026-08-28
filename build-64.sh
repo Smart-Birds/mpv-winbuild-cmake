@@ -56,8 +56,15 @@ build() {
 
     if [ "$compiler" == "gcc" ] && [ ! -f "$buildroot/build64/install/bin/cross-gcc" ]; then
         ninja -C $buildroot/build64 gcc && rm -rf $buildroot/build64/toolchain
-    elif [ "$compiler" == "clang" ] && [ ! "$(ls -A $clang_root/bin/clang 2>/dev/null)" ]; then
-        ninja -C $buildroot/build64 llvm && ninja -C $buildroot/build64 llvm-clang
+    elif [ "$compiler" == "clang" ]; then
+        if [ ! -f "$clang_root/bin/clang" ]; then
+            ninja -C $buildroot/build64 llvm
+        fi
+        # clang_root/bin/clang alone is not enough: llvm-clang pulls in mingw CRT,
+        # libc++, cppwinrt, and the wrapper scripts packages configure against.
+        # A cached partial toolchain (e.g. cppwinrt install failed before CRT
+        # landed) must resume here — ninja is a no-op when already complete.
+        ninja -C $buildroot/build64 llvm-clang
     fi
 
     if [[ ! "$(ls -A $buildroot/install_rustup/.cargo/bin 2>/dev/null)" ]]; then
