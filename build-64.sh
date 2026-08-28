@@ -22,6 +22,14 @@ mkdir -p ./release
 git config --global user.email "mpv-winbuild@localhost"
 git config --global user.name "mpv-winbuild CI"
 
+dump_stamp_err_logs() {
+    find "$buildroot/build64" -path '*-stamp/*-err.log' -size +0c -print0 \
+        | while IFS= read -r -d '' log; do
+            echo "=== ${log} ==="
+            tail -n 120 "$log"
+        done
+}
+
 build() {
     local clang_option=()
     if [ "$compiler" == "clang" ]; then
@@ -31,7 +39,9 @@ build() {
     if [ -n "$mpv_ref" ]; then
         mpv_tag_option=(-DMPV_GIT_TAG="$mpv_ref")
     fi
-    cmake -Wno-dev --fresh -DTARGET_ARCH=x86_64-w64-mingw32 -DCOMPILER_TOOLCHAIN=$compiler "${clang_option[@]}" "${mpv_tag_option[@]}" -DENABLE_CCACHE=ON -DSINGLE_SOURCE_LOCATION=$srcdir -DRUSTUP_LOCATION=$buildroot/install_rustup -G Ninja -H$gitdir -B$buildroot/build64
+    # CI strips ccache_conf.in / CCACHE_DIR from exec.in; keep ccache off so
+    # wrapper scripts do not serve objects built with a different toolchain.
+    cmake -Wno-dev --fresh -DTARGET_ARCH=x86_64-w64-mingw32 -DCOMPILER_TOOLCHAIN=$compiler "${clang_option[@]}" "${mpv_tag_option[@]}" -DENABLE_CCACHE=OFF -DSINGLE_SOURCE_LOCATION=$srcdir -DRUSTUP_LOCATION=$buildroot/install_rustup -G Ninja -H$gitdir -B$buildroot/build64
 
     # Downloads must genuinely complete: a killed parallel git clone leaves
     # stale .git locks and missing objects, and the surviving "downloaded"
@@ -74,7 +84,10 @@ build() {
     ninja -C $buildroot/build64 update
     ninja -C $buildroot/build64 mpv-fullclean
 
-    ninja -C $buildroot/build64 mpv
+    if ! ninja -C $buildroot/build64 mpv; then
+        dump_stamp_err_logs >&2
+        exit 1
+    fi
 
     if [ -n "$(find $buildroot/build64 -maxdepth 1 -type d -name "mpv*x86_64*" -print -quit)" ] ; then
         echo "Successfully compiled 64-bit. Continue"
