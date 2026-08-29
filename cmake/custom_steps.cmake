@@ -92,19 +92,25 @@ function(force_rebuild_git _name)
         set(reset "@{u}") # eg: origin/master
     endif()
 
-file(WRITE ${stamp_dir}/reset_head.sh
+if(NOT "${git_reset}" STREQUAL "")
+    # Tag/commit pins checkout detached HEAD; @{u} is invalid there.
+    file(WRITE ${stamp_dir}/reset_head.sh
+"#!/bin/bash
+set -e
+git -C ${source_dir} reset --hard ${reset} -q")
+else()
+    file(WRITE ${stamp_dir}/reset_head.sh
 "#!/bin/bash
 set -e
 if [[ ! -f \"${stamp_dir}/${_name}-patch\"  || \"${stamp_dir}/${_name}-download\" -nt \"${stamp_dir}/${_name}-patch\" || ! -f \"${stamp_dir}/HEAD\" || \"$(cat ${stamp_dir}/HEAD)\" != \"$(git -C ${source_dir} rev-parse @{u})\" ]]; then
     git -C ${source_dir} reset --hard ${reset} -q
-    if [[ -z \"${git_reset}\" ]]; then
-        find \"${stamp_dir}\" -type f  ! -iname '*.cmake' -size 0c -delete
-        echo \"Removing ${_name} stamp files.\"
-        git -C ${source_dir} rev-parse HEAD > ${stamp_dir}/HEAD
-    fi
+    find \"${stamp_dir}\" -type f  ! -iname '*.cmake' -size 0c -delete
+    echo \"Removing ${_name} stamp files.\"
+    git -C ${source_dir} rev-parse HEAD > ${stamp_dir}/HEAD
 else
     git -C ${source_dir} reset --hard -q
 fi")
+endif()
 file(CHMOD ${stamp_dir}/reset_head.sh 
 PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
 

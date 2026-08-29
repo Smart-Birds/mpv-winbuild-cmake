@@ -6,6 +6,7 @@ ExternalProject_Add(libvpl
     # Pinned: upstream shinchiro built API 2.17 successfully; tracking main
     # broke SOVA2 cross-builds when libvpl moved ahead of the toolchain.
     GIT_TAG v2.17.0
+    GIT_RESET v2.17.0
     UPDATE_COMMAND ""
     CONFIGURE_COMMAND ${EXEC} CONF=1 cmake -H<SOURCE_DIR> -B<BINARY_DIR>
         -G Ninja

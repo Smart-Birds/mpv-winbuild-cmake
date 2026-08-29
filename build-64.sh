@@ -99,8 +99,8 @@ build() {
         ninja -C $buildroot/build64 rustup-fullclean
         ninja -C $buildroot/build64 rustup
     fi
-    ninja -C $buildroot/build64 update
     scrub_libvpl_if_not_pinned
+    ninja -C $buildroot/build64 update
     ninja -C $buildroot/build64 mpv-fullclean
 
     if ! ninja -C $buildroot/build64 mpv; then
