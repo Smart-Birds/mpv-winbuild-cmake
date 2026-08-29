@@ -42,21 +42,30 @@ dump_stamp_logs() {
 
 scrub_libvpl_if_not_pinned() {
     local libvpl_src="$srcdir/libvpl"
+    local libvpl_prefix="$buildroot/build64/packages/libvpl-prefix"
     local tag=""
-    if [ ! -d "$libvpl_src/.git" ]; then
-        return 0
-    fi
-    tag=$(git -C "$libvpl_src" describe --tags --exact-match 2>/dev/null || true)
-    if [ "$tag" = "v2.17.0" ]; then
-        if [ -f "$gitdir/packages/libvpl-0001-mingw-wcscpy_s-guard.patch" ] && \
-           ! grep -q 'defined(_MSC_VER)' "$libvpl_src/libvpl/src/windows/mfx_dispatcher_defs.h" 2>/dev/null; then
+    local needs_scrub=0
+
+    if [ -d "$libvpl_src/.git" ]; then
+        tag=$(git -C "$libvpl_src" describe --tags --exact-match 2>/dev/null || true)
+        if [ "$tag" != "v2.17.0" ]; then
+            needs_scrub=1
+            echo "libvpl checkout is '${tag:-moving HEAD}', not v2.17.0; scrubbing cached tree" >&2
+        elif [ -f "$gitdir/packages/libvpl-0001-mingw-wcscpy_s-guard.patch" ] && \
+             ! grep -q 'defined(_MSC_VER)' "$libvpl_src/libvpl/src/windows/mfx_dispatcher_defs.h" 2>/dev/null; then
+            needs_scrub=1
             echo "libvpl checkout lacks mingw wcscpy_s patch; scrubbing" >&2
-            ninja -C "$buildroot/build64" libvpl-removeprefix
         fi
-        return 0
+    elif [ -d "$libvpl_prefix" ]; then
+        # libvpl-removeprefix deletes the tree but leaves download stamps; the
+        # next force-update then runs git reset on an empty directory.
+        needs_scrub=1
+        echo "libvpl prefix exists without checkout; scrubbing stale stamps" >&2
     fi
-    echo "libvpl checkout is '${tag:-moving HEAD}', not v2.17.0; scrubbing cached tree" >&2
-    ninja -C "$buildroot/build64" libvpl-removeprefix
+
+    if [ "$needs_scrub" = 1 ]; then
+        rm -rf "$libvpl_src" "$libvpl_prefix"
+    fi
 }
 
 build() {
@@ -106,13 +115,12 @@ build() {
         if [ ! -f "$clang_root/bin/clang" ]; then
             ninja -C $buildroot/build64 llvm
         fi
-        # Resume or rebuild the mingw+libc++ toolchain. CI cache can retain
-        # llvm-libcxx/cppwinrt build stamps while install never finished; a
-        # later --fresh reconfigure then races mingw header installs against
-        # libc++ and poisons guiddef.h. Scrub and rebuild headers single-threaded.
-        local libcxx_install="$buildroot/build64/toolchain/llvm-libcxx-prefix/src/llvm-libcxx-stamp/llvm-libcxx-install"
-        if [ ! -f "$libcxx_install" ]; then
-            echo "llvm-libcxx not installed; scrubbing partial mingw/libcxx/cppwinrt" >&2
+        # Resume or rebuild the mingw+libc++ toolchain. The llvm-libcxx-install
+        # stamp file is not always present in cached trees; libstdc++.a is the
+        # install artifact libc++ copies into the mingw prefix.
+        local mingw_libcxx="$buildroot/build64/install/x86_64-w64-mingw32/lib/libstdc++.a"
+        if [ -f "$clang_root/bin/clang" ] && [ ! -f "$mingw_libcxx" ]; then
+            echo "mingw libc++ not installed; scrubbing partial mingw/libcxx/cppwinrt" >&2
             ninja -C $buildroot/build64 \
                 mingw-w64-headers-liteclean \
                 llvm-libcxx-liteclean \
