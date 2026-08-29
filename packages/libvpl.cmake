@@ -8,6 +8,7 @@ ExternalProject_Add(libvpl
     GIT_TAG v2.17.0
     GIT_RESET v2.17.0
     UPDATE_COMMAND ""
+    PATCH_COMMAND ${EXEC} git am --3way ${CMAKE_CURRENT_SOURCE_DIR}/libvpl-*.patch
     CONFIGURE_COMMAND ${EXEC} CONF=1 cmake -H<SOURCE_DIR> -B<BINARY_DIR>
         -G Ninja
         -DCMAKE_BUILD_TYPE=Release

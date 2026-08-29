@@ -48,6 +48,11 @@ scrub_libvpl_if_not_pinned() {
     fi
     tag=$(git -C "$libvpl_src" describe --tags --exact-match 2>/dev/null || true)
     if [ "$tag" = "v2.17.0" ]; then
+        if [ -f "$gitdir/packages/libvpl-0001-mingw-wcscpy_s-guard.patch" ] && \
+           ! grep -q 'defined(_MSC_VER)' "$libvpl_src/libvpl/src/windows/mfx_dispatcher_defs.h" 2>/dev/null; then
+            echo "libvpl checkout lacks mingw wcscpy_s patch; scrubbing" >&2
+            ninja -C "$buildroot/build64" libvpl-removeprefix
+        fi
         return 0
     fi
     echo "libvpl checkout is '${tag:-moving HEAD}', not v2.17.0; scrubbing cached tree" >&2
@@ -122,6 +127,11 @@ build() {
         ninja -C $buildroot/build64 rustup
     fi
     scrub_libvpl_if_not_pinned
+    if [ -f "$buildroot/build64/packages/libvpl-prefix/src/libvpl-stamp/libvpl-build" ] && \
+       [ ! -f "$buildroot/build64/packages/libvpl-prefix/src/libvpl-stamp/libvpl-install" ]; then
+        echo "libvpl build previously failed; liteclean before retry" >&2
+        ninja -C $buildroot/build64 libvpl-liteclean || true
+    fi
     ninja -C $buildroot/build64 update
     ninja -C $buildroot/build64 mpv-fullclean
 
