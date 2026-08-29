@@ -22,12 +22,30 @@ mkdir -p ./release
 git config --global user.email "mpv-winbuild@localhost"
 git config --global user.name "mpv-winbuild CI"
 
-dump_stamp_err_logs() {
-    find "$buildroot/build64" -path '*-stamp/*-err.log' -size +0c -print0 \
-        | while IFS= read -r -d '' log; do
-            echo "=== ${log} ==="
-            tail -n 120 "$log"
-        done
+dump_stamp_logs() {
+    local kind
+    for kind in err build-out configure-out install-out; do
+        find "$buildroot/build64" -path "*-stamp/*-${kind}.log" -size +0c -print0 \
+            | sort -z \
+            | while IFS= read -r -d '' log; do
+                echo "=== ${log} ==="
+                tail -n 120 "$log"
+            done
+    done
+}
+
+scrub_libvpl_if_not_pinned() {
+    local libvpl_src="$srcdir/libvpl"
+    local tag=""
+    if [ ! -d "$libvpl_src/.git" ]; then
+        return 0
+    fi
+    tag=$(git -C "$libvpl_src" describe --tags --exact-match 2>/dev/null || true)
+    if [ "$tag" = "v2.17.0" ]; then
+        return 0
+    fi
+    echo "libvpl checkout is '${tag:-moving HEAD}', not v2.17.0; scrubbing cached tree" >&2
+    ninja -C "$buildroot/build64" libvpl-removeprefix
 }
 
 build() {
@@ -82,10 +100,11 @@ build() {
         ninja -C $buildroot/build64 rustup
     fi
     ninja -C $buildroot/build64 update
+    scrub_libvpl_if_not_pinned
     ninja -C $buildroot/build64 mpv-fullclean
 
     if ! ninja -C $buildroot/build64 mpv; then
-        dump_stamp_err_logs >&2
+        dump_stamp_logs >&2
         exit 1
     fi
 
