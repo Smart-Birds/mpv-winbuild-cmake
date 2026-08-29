@@ -5,6 +5,11 @@ export PKG_CONFIG="pkgconf --static"
 export PKG_CONFIG_LIBDIR="@MINGW_INSTALL_PREFIX@/lib/pkgconfig"
 export RUSTUP_HOME="@RUSTUP_LOCATION@/.rustup"
 export CARGO_HOME="@RUSTUP_LOCATION@/.cargo"
+# GHA container jobs run as root but may inherit HOME=/github/home; git 2.35+
+# refuses to run when $HOME does not match the euid home directory.
+if [ "$(id -u)" = "0" ] && [ "${HOME:-}" = "/github/home" ]; then
+    export HOME=/root
+fi
 export LD_PRELOAD="@MALLOC@"
 export CCACHE_DIR="@MINGW_INSTALL_PREFIX@/ccache"
 export LLVM_PROFILE_FILE="/dev/null"

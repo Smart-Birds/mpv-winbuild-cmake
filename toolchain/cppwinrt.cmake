@@ -1,7 +1,4 @@
 ExternalProject_Add(cppwinrt
-    DEPENDS
-        mingw-w64-headers
-        mingw-w64-crt
     GIT_REPOSITORY https://github.com/microsoft/cppwinrt.git
     SOURCE_DIR ${SOURCE_LOCATION}
     GIT_CLONE_FLAGS "--filter=tree:0"
