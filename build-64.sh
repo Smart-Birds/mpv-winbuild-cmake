@@ -101,14 +101,20 @@ build() {
         if [ ! -f "$clang_root/bin/clang" ]; then
             ninja -C $buildroot/build64 llvm
         fi
-        # clang_root/bin/clang alone is not enough: llvm-clang pulls in mingw CRT,
-        # libc++, cppwinrt, and the wrapper scripts packages configure against.
-        # A cached partial toolchain (e.g. cppwinrt install failed before CRT
-        # landed) must resume here — ninja is a no-op when already complete.
-        # Serialize mingw headers/CRT before cppwinrt/libcxx: cppwinrt has no
-        # EP DEPENDS on them and races parallel header installs on cache resume.
-        ninja -C $buildroot/build64 mingw-w64-headers mingw-w64-crt
-        ninja -C $buildroot/build64 llvm-clang
+        # Resume or rebuild the mingw+libc++ toolchain. CI cache can retain
+        # llvm-libcxx/cppwinrt build stamps while install never finished; a
+        # later --fresh reconfigure then races mingw header installs against
+        # libc++ and poisons guiddef.h. Scrub and rebuild headers single-threaded.
+        local libcxx_install="$buildroot/build64/toolchain/llvm-libcxx-prefix/src/llvm-libcxx-stamp/llvm-libcxx-install"
+        if [ ! -f "$libcxx_install" ]; then
+            echo "llvm-libcxx not installed; scrubbing partial mingw/libcxx/cppwinrt" >&2
+            ninja -C $buildroot/build64 \
+                mingw-w64-headers-liteclean \
+                llvm-libcxx-liteclean \
+                cppwinrt-liteclean || true
+        fi
+        ninja -C $buildroot/build64 -j1 mingw-w64-headers mingw-w64-crt
+        ninja -C $buildroot/build64 -j1 llvm-clang
     fi
 
     if [[ ! "$(ls -A $buildroot/install_rustup/.cargo/bin 2>/dev/null)" ]]; then
