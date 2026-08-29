@@ -8,6 +8,12 @@
 set -x
 set -euo pipefail
 
+# GHA container jobs run as root but keep HOME=/github/home; git 2.35+ refuses
+# to run when $HOME does not match the euid home directory.
+if [ "$(id -u)" = "0" ] && [ "${HOME:-}" = "/github/home" ]; then
+    export HOME=/root
+fi
+
 gitdir=$(pwd)
 clang_root=$(pwd)/clang_root
 buildroot=$(pwd)
@@ -59,7 +65,14 @@ build() {
     fi
     # CI strips ccache_conf.in / CCACHE_DIR from exec.in; keep ccache off so
     # wrapper scripts do not serve objects built with a different toolchain.
-    cmake -Wno-dev --fresh -DTARGET_ARCH=x86_64-w64-mingw32 -DCOMPILER_TOOLCHAIN=$compiler "${clang_option[@]}" "${mpv_tag_option[@]}" -DENABLE_CCACHE=OFF -DSINGLE_SOURCE_LOCATION=$srcdir -DRUSTUP_LOCATION=$buildroot/install_rustup -G Ninja -H$gitdir -B$buildroot/build64
+    local fresh_option=(--fresh)
+    if [ -f "$buildroot/build64/CMakeCache.txt" ]; then
+        # Restored CI cache: reconfigure in-place so ExternalProject stamps stay
+        # valid; --fresh wipes CMake state and can restart mingw header installs
+        # while llvm-libcxx/cppwinrt compile against half-written headers.
+        fresh_option=()
+    fi
+    cmake -Wno-dev "${fresh_option[@]}" -DTARGET_ARCH=x86_64-w64-mingw32 -DCOMPILER_TOOLCHAIN=$compiler "${clang_option[@]}" "${mpv_tag_option[@]}" -DENABLE_CCACHE=OFF -DSINGLE_SOURCE_LOCATION=$srcdir -DRUSTUP_LOCATION=$buildroot/install_rustup -G Ninja -H$gitdir -B$buildroot/build64
 
     # Downloads must genuinely complete: a killed parallel git clone leaves
     # stale .git locks and missing objects, and the surviving "downloaded"
@@ -92,6 +105,9 @@ build() {
         # libc++, cppwinrt, and the wrapper scripts packages configure against.
         # A cached partial toolchain (e.g. cppwinrt install failed before CRT
         # landed) must resume here — ninja is a no-op when already complete.
+        # Serialize mingw headers/CRT before cppwinrt/libcxx: cppwinrt has no
+        # EP DEPENDS on them and races parallel header installs on cache resume.
+        ninja -C $buildroot/build64 mingw-w64-headers mingw-w64-crt
         ninja -C $buildroot/build64 llvm-clang
     fi
 
