@@ -27,7 +27,6 @@ ExternalProject_Add(mpv
         shaderc
         libplacebo
         spirv-cross
-        vapoursynth
         libsdl2
         libsixel
     GIT_REPOSITORY https://github.com/mpv-player/mpv.git
@@ -60,7 +59,7 @@ ExternalProject_Add(mpv
         -Dopenal=enabled
         -Dspirv-cross=enabled
         -Dvulkan=enabled
-        -Dvapoursynth=enabled
+        -Dvapoursynth=disabled
         -Dsixel=enabled
         ${mpv_gl}
         -Dc_args='-Wno-error=int-conversion'
