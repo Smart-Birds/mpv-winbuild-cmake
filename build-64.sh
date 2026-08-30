@@ -51,8 +51,7 @@ scrub_libvpl_if_not_pinned() {
         if [ "$tag" != "v2.17.0" ]; then
             needs_scrub=1
             echo "libvpl checkout is '${tag:-moving HEAD}', not v2.17.0; scrubbing cached tree" >&2
-        elif [ -f "$gitdir/packages/libvpl-0001-mingw-wcscpy_s-guard.patch" ] && \
-             ! grep -q 'defined(_MSC_VER)' "$libvpl_src/libvpl/src/windows/mfx_dispatcher_defs.h" 2>/dev/null; then
+        elif ! grep -q 'defined(_MSC_VER)' "$libvpl_src/libvpl/src/windows/mfx_dispatcher_defs.h" 2>/dev/null; then
             needs_scrub=1
             echo "libvpl checkout lacks mingw wcscpy_s patch; scrubbing" >&2
         fi
@@ -87,6 +86,9 @@ build() {
         fresh_option=()
     fi
     cmake -Wno-dev "${fresh_option[@]}" -DTARGET_ARCH=x86_64-w64-mingw32 -DCOMPILER_TOOLCHAIN=$compiler "${clang_option[@]}" "${mpv_tag_option[@]}" -DENABLE_CCACHE=OFF -DSINGLE_SOURCE_LOCATION=$srcdir -DRUSTUP_LOCATION=$buildroot/install_rustup -G Ninja -H$gitdir -B$buildroot/build64
+
+    # Scrub before download so ninja update never force-updates a deleted tree.
+    scrub_libvpl_if_not_pinned
 
     # Downloads must genuinely complete: a killed parallel git clone leaves
     # stale .git locks and missing objects, and the surviving "downloaded"
@@ -138,7 +140,6 @@ build() {
         ninja -C $buildroot/build64 rustup-fullclean
         ninja -C $buildroot/build64 rustup
     fi
-    scrub_libvpl_if_not_pinned
     if [ -f "$buildroot/build64/packages/libvpl-prefix/src/libvpl-stamp/libvpl-build" ] && \
        [ ! -f "$buildroot/build64/packages/libvpl-prefix/src/libvpl-stamp/libvpl-install" ]; then
         echo "libvpl build previously failed; liteclean before retry" >&2
