@@ -119,15 +119,19 @@ build() {
         # stamp file is not always present in cached trees; libstdc++.a is the
         # install artifact libc++ copies into the mingw prefix.
         local mingw_libcxx="$buildroot/build64/install/x86_64-w64-mingw32/lib/libstdc++.a"
-        if [ -f "$clang_root/bin/clang" ] && [ ! -f "$mingw_libcxx" ]; then
-            echo "mingw libc++ not installed; scrubbing partial mingw/libcxx/cppwinrt" >&2
-            ninja -C $buildroot/build64 \
-                mingw-w64-headers-liteclean \
-                llvm-libcxx-liteclean \
-                cppwinrt-liteclean || true
+        if [ -f "$clang_root/bin/clang" ] && [ -f "$mingw_libcxx" ]; then
+            echo "mingw libc++ present; skipping llvm-clang rebuild" >&2
+        else
+            if [ -f "$clang_root/bin/clang" ]; then
+                echo "mingw libc++ not installed; scrubbing partial mingw/libcxx/cppwinrt" >&2
+                ninja -C $buildroot/build64 \
+                    mingw-w64-headers-liteclean \
+                    llvm-libcxx-liteclean \
+                    cppwinrt-liteclean || true
+            fi
+            ninja -C $buildroot/build64 -j1 mingw-w64-headers mingw-w64-crt
+            ninja -C $buildroot/build64 -j1 llvm-clang
         fi
-        ninja -C $buildroot/build64 -j1 mingw-w64-headers mingw-w64-crt
-        ninja -C $buildroot/build64 -j1 llvm-clang
     fi
 
     if [[ ! "$(ls -A $buildroot/install_rustup/.cargo/bin 2>/dev/null)" ]]; then
