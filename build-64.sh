@@ -146,6 +146,23 @@ build() {
         ninja -C $buildroot/build64 libvpl-liteclean || true
     fi
     ninja -C $buildroot/build64 update
+
+    # Resumed cache: the update step's git reset bumps source mtimes without
+    # changing content (openssl is pinned), which makes openssl's Makefile
+    # think configdata.pm is stale and re-run `Configure reconf` — and that
+    # reconfigure reproducibly dies in perl ("syntax error near $-144").
+    # The cached configdata.pm matches the pinned source exactly, so mark it
+    # fresh instead of letting make regenerate it.
+    local openssl_builddir="$buildroot/build64/packages/openssl-prefix/src/openssl-build"
+    if [ -f "$openssl_builddir/configdata.pm" ]; then
+        touch "$openssl_builddir/configdata.pm"
+        # Makefile depends on configdata.pm; keep it newer so make does not
+        # regenerate it either (same perl template evaluation, same crash).
+        if [ -f "$openssl_builddir/Makefile" ]; then
+            touch "$openssl_builddir/Makefile"
+        fi
+    fi
+
     ninja -C $buildroot/build64 mpv-fullclean
 
     if ! ninja -C $buildroot/build64 mpv; then
