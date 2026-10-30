@@ -1,10 +1,17 @@
 # MPV_GIT_TAG pins the mpv ref to build (tag/commit). Empty = track
 # origin/master, upstream's default. Set via -DMPV_GIT_TAG=... (SOVA2 #366:
-# sidecar builds must be immutable and re-runnable). Setting GIT_TAG also
-# switches force_rebuild_git's reset to plain `git reset --hard`, so a pinned
-# checkout survives the ALWAYS-run force-update step.
+# sidecar builds must be immutable and re-runnable).
+#
+# GIT_TAG alone only takes effect on a fresh clone. CI restores src_packages
+# from cache, check-git then skips the clone, and with no GIT_REMOTE_NAME
+# force_rebuild_git writes a bare `git reset --hard`, so HEAD stayed on the
+# previous build's pin. GIT_REMOTE_NAME + GIT_RESET (as libvpl does) make
+# reset_head.sh run `git reset --hard <pin>` after force-update's fetch.
 if(MPV_GIT_TAG)
-    set(mpv_git_tag GIT_TAG ${MPV_GIT_TAG})
+    set(mpv_git_tag
+        GIT_REMOTE_NAME origin
+        GIT_TAG ${MPV_GIT_TAG}
+        GIT_RESET ${MPV_GIT_TAG})
 endif()
 
 ExternalProject_Add(mpv
