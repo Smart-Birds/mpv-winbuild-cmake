@@ -83,11 +83,14 @@ function(force_rebuild_git _name)
     get_property(stamp_dir TARGET ${_name} PROPERTY _EP_STAMP_DIR)
     get_property(source_dir TARGET ${_name} PROPERTY _EP_SOURCE_DIR)
 
-    if("${git_remote_name}" STREQUAL "" AND NOT "${git_tag}" STREQUAL "")
-        # GIT_REMOTE_NAME is not set when commit hash is specified
-        set(reset "")
-    elseif(NOT "${git_reset}" STREQUAL "")
+    if(NOT "${git_reset}" STREQUAL "")
         set(reset "${git_reset}")
+    elseif("${git_remote_name}" STREQUAL "" AND NOT "${git_tag}" STREQUAL "")
+        # GIT_REMOTE_NAME is not set when a commit hash is specified: the
+        # checkout is detached, so reset to the hash itself. A bare reset left a
+        # restored CI cache on the commit it last built (Smart-Birds/Main run
+        # 41413214852 packaged mpv 8e5a96f under the pin a687796).
+        set(reset "${git_tag}")
     else()
         set(reset "@{u}") # eg: origin/master
     endif()
